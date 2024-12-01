@@ -1,7 +1,8 @@
 #!/bin/bash
 
+echo "=== 1. 환경 변수 설정 ==="
 # 교육생별 고유 이름 설정
-NAME="ondal-cache-aside"
+NAME="{userid}-cache-aside"
 
 # 리소스 그룹, VNET 이름 등 공통 변수
 RESOURCE_GROUP="tiu-dgga-rg"
@@ -18,7 +19,8 @@ APP_INSIGHTS="tiu-dgga-insights"
 SQL_ADMIN_LOGIN="sqladmin"
 SQL_ADMIN_PASSWORD="P@ssw0rd$"
 
-# Azure Cache for Redis 생성
+echo "=== 2. Redis Cache 설정 ==="
+echo "2-1. Azure Cache for Redis 생성"
 az redis create \
   --name $NAME-redis \
   --resource-group $RESOURCE_GROUP \
@@ -26,7 +28,7 @@ az redis create \
   --sku Basic \
   --vm-size c0
 
-# Redis의 Private Endpoint 생성
+echo "2-2. Redis Private Endpoint 생성"
 az network private-endpoint create \
   --name $NAME-redis-pe \
   --resource-group $RESOURCE_GROUP \
@@ -36,7 +38,8 @@ az network private-endpoint create \
   --connection-name redisConnection \
   --group-id redisCache
 
-# Azure SQL Database 생성
+echo "=== 3. SQL Database 설정 ==="
+echo "3-1. Azure SQL Server 생성"
 az sql server create \
   --name $NAME-sql \
   --resource-group $RESOURCE_GROUP \
@@ -44,14 +47,14 @@ az sql server create \
   --admin-user $SQL_ADMIN_LOGIN \
   --admin-password "$SQL_ADMIN_PASSWORD"
 
-# SQL Server DB 생성
+echo "3-2. SQL Database 생성"
 az sql db create \
   --name $NAME-db \
   --resource-group $RESOURCE_GROUP \
   --server $NAME-sql \
   --service-objective Basic
 
-# SQL Server의 Private Endpoint 생성
+echo "3-3. SQL Server Private Endpoint 생성"
 az network private-endpoint create \
   --name $NAME-sql-pe \
   --resource-group $RESOURCE_GROUP \
@@ -61,37 +64,36 @@ az network private-endpoint create \
   --connection-name sqlConnection \
   --group-id sqlServer
 
-
-# Public network에서 sql server 접근 금지
+echo "3-4. SQL Server 공개 액세스 비활성화"
 az sql server update \
   --name $NAME-sql \
   --resource-group $RESOURCE_GROUP \
   --enable-public-network false
 
-
-
-# App Service Plan 생성
+echo "=== 4. Web App 설정 ==="
+echo "4-1. App Service Plan 생성"
 az appservice plan create \
   --name $NAME-plan \
   --resource-group $RESOURCE_GROUP \
   --sku B1 \
   --is-linux
 
-# Web App 생성
+echo "4-2. Web App 생성"
 az webapp create \
   --name $NAME-app \
   --resource-group $RESOURCE_GROUP \
   --plan $NAME-plan \
   --runtime "JAVA:17-java17"
 
-# VNET 통합 설정
+echo "4-3. Web App VNET 통합 설정"
 az webapp vnet-integration add \
   --name $NAME-app \
   --resource-group $RESOURCE_GROUP \
   --vnet $VNET_NAME \
   --subnet $SUBNET_APP
 
-# Private DNS에 DNS 레코드 생성 - Redis Server
+echo "=== 5. Private DNS 설정 ==="
+echo "5-1. Redis Server DNS 레코드 생성"
 REDIS_PE_IP=$(az network private-endpoint show \
   --name "$NAME-redis-pe" \
   --resource-group $RESOURCE_GROUP \
@@ -109,7 +111,7 @@ az network private-dns record-set a add-record \
   --resource-group $RESOURCE_GROUP \
   --ipv4-address $REDIS_PE_IP
 
-# Private DNS에 DNS 레코드 생성 - SQL Server
+echo "5-2. SQL Server DNS 레코드 생성"
 PE_IP=$(az network private-endpoint show \
   --name "$NAME-sql-pe" \
   --resource-group $RESOURCE_GROUP \
@@ -118,28 +120,25 @@ PE_IP=$(az network private-endpoint show \
 
 az network private-dns record-set a create \
   --name "$NAME-sql" \
-  --zone-name "$DNS_ZONE_REDIS_SQL" \
+  --zone-name "$DNS_ZONE_SQL" \
   --resource-group $RESOURCE_GROUP
 
 az network private-dns record-set a add-record \
   --record-set-name "$NAME-sql" \
-  --zone-name "$DNS_ZONE_REDIS_SQL" \
+  --zone-name "$DNS_ZONE_SQL" \
   --resource-group $RESOURCE_GROUP \
   --ipv4-address $PE_IP
 
-
-# 생성된 리소스 확인
-az resource list --resource-group $RESOURCE_GROUP --output table | grep $NAME
-
-# Web App에 서버 연결 정보 설정
+echo "=== 6. Web App 환경 설정 ==="
+echo "6-1. 연결 문자열 조회"
 redis_host=$(az redis show --name $NAME-redis --resource-group $RESOURCE_GROUP --query hostName -o tsv)
 redis_key=$(az redis list-keys --name $NAME-redis --resource-group $RESOURCE_GROUP --query primaryKey -o tsv)
 
-sql_connection=$(az sql db show-connection-string --name $NAME-db --server $NAME-sql --client jdbc)
 sql_connection="jdbc:sqlserver://$NAME-sql.database.windows.net:1433;database=$NAME-db;user=$SQL_ADMIN_LOGIN;password=$SQL_ADMIN_PASSWORD;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30"
 
-ai_connection_string=$(az monitor app-insights component show --app $NAME-insights --resource-group $RESOURCE_GROUP --query connectionString -o tsv)
+ai_connection_string=$(az monitor app-insights component show --app $APP_INSIGHTS --resource-group $RESOURCE_GROUP --query connectionString -o tsv)
 
+echo "6-2. Web App 설정 적용"
 az webapp config appsettings set \
   --name $NAME-app \
   --resource-group $RESOURCE_GROUP \
@@ -151,12 +150,7 @@ az webapp config appsettings set \
     SPRING_DATASOURCE_URL="$sql_connection" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="$ai_connection_string"
 
-az webapp config appsettings list --name $NAME-app --resource-group $RESOURCE_GROUP -o table
+echo "=== 7. 리소스 확인 ==="
+az resource list --resource-group $RESOURCE_GROUP --output table | grep $NAME
 
-# Web App에 Application Insights 연결
-az webapp config appsettings set \
-  --name $NAME-app \
-  --resource-group $RESOURCE_GROUP \
-  --settings APPLICATIONINSIGHTS_CONNECTION_STRING=$(az monitor app-insights component show --app $APP_INSIGHTS --resource-group $RESOURCE_GROUP --query connectionString -o tsv)
-
-echo "작업 완료"
+echo "모든 작업이 완료되었습니다."
