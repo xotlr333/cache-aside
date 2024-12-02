@@ -2,7 +2,7 @@
 
 echo "=== 1. 환경 변수 설정 ==="
 # 교육생별 고유 이름 설정
-NAME="{userid}-cache-aside"
+NAME="gappa-cache-aside"
 
 # 리소스 그룹, VNET 이름 등 공통 변수
 RESOURCE_GROUP="tiu-dgga-rg"
@@ -150,7 +150,7 @@ az webapp config appsettings set \
     SPRING_DATASOURCE_URL="$sql_connection" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="$ai_connection_string"
 
-echo "=== 7. 리소스 확인 ==="
+echo "=== 7. 리소스 생성 확인 ==="
 az resource list --resource-group $RESOURCE_GROUP --output table | grep $NAME
 
 echo "모든 작업이 완료되었습니다."
