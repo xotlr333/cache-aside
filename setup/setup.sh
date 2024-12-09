@@ -61,7 +61,7 @@ NAME="${1}-cache-aside"
 RESOURCE_GROUP="tiu-dgga-rg"
 VNET_NAME="tiu-dgga-vnet"
 LOCATION="koreacentral"
-AKS_NAME="dgga-aks"
+AKS_NAME="${1}-aks"
 
 SUBNET_REDIS="tiu-dgga-pe-snet"
 SUBNET_SQL="tiu-dgga-psql-snet"
@@ -301,31 +301,6 @@ check_azure_cli() {
         check_error "Azure 로그인 실패"
     fi
 }
-
-# 환경 변수 설정
-echo "=== 1. 환경 변수 설정 ==="
-NAME="${1}-cache-aside"
-RESOURCE_GROUP="tiu-dgga-rg"
-VNET_NAME="tiu-dgga-vnet"
-LOCATION="koreacentral"
-AKS_NAME="dgga-aks"
-
-SUBNET_REDIS="tiu-dgga-pe-snet"
-SUBNET_SQL="tiu-dgga-psql-snet"
-SUBNET_APP="tiu-dgga-pri-snet"
-
-DNS_ZONE_REDIS="privatelink.redis.cache.windows.net"
-DNS_ZONE_SQL="privatelink.database.windows.net"
-
-LOG_FILE="deployment_${NAME}.log"
-
-# Redis namespace와 설정
-REDIS_NAMESPACE="redis"
-REDIS_PASSWORD="P@ssw0rd$"
-
-# SQL Server 관리자 계정 설정
-SQL_ADMIN_LOGIN="sqladmin"
-SQL_ADMIN_PASSWORD="P@ssw0rd$"
 
 # Redis 컨테이너 설정
 setup_redis_container() {
