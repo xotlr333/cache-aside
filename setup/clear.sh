@@ -39,7 +39,7 @@ fi
 # 환경 변수 설정
 NAME="${1}-cache-aside"
 RESOURCE_GROUP="tiu-dgga-rg"
-AKS_NAME="dgga-aks"
+AKS_NAME="${1}-aks"
 REDIS_NAMESPACE="redis"
 
 # 리소스 삭제 전 확인
