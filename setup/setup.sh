@@ -55,30 +55,56 @@ check_azure_cli() {
     fi
 }
 
-# 환경 변수 설정
-echo "=== 1. 환경 변수 설정 ==="
-NAME="${1}-cache-aside"
-RESOURCE_GROUP="tiu-dgga-rg"
-VNET_NAME="tiu-dgga-vnet"
-LOCATION="koreacentral"
-AKS_NAME="${1}-aks"
+# 환경 변수 설정 함수
+setup_environment() {
+    local userid=$1
+    log "=== 1. 환경 변수 설정 ==="
+    NAME="${userid}-cache-aside"
+    RESOURCE_GROUP="tiu-dgga-rg"
+    VNET_NAME="tiu-dgga-vnet"
+    LOCATION="koreacentral"
+    AKS_NAME="${userid}-aks"
 
-SUBNET_REDIS="tiu-dgga-pe-snet"
-SUBNET_SQL="tiu-dgga-psql-snet"
-SUBNET_APP="tiu-dgga-pri-snet"
+    SUBNET_REDIS="tiu-dgga-pe-snet"
+    SUBNET_SQL="tiu-dgga-psql-snet"
+    SUBNET_APP="tiu-dgga-pri-snet"
 
-DNS_ZONE_REDIS="privatelink.redis.cache.windows.net"
-DNS_ZONE_SQL="privatelink.database.windows.net"
+    DNS_ZONE_REDIS="privatelink.redis.cache.windows.net"
+    DNS_ZONE_SQL="privatelink.database.windows.net"
 
-LOG_FILE="deployment_${NAME}.log"
+    LOG_FILE="deployment_${NAME}.log"
 
-# Redis namespace와 설정
-REDIS_NAMESPACE="redis"
-REDIS_PASSWORD="P@ssw0rd$"
+    # Redis namespace와 설정
+    REDIS_NAMESPACE="redis"
+    REDIS_PASSWORD="P@ssw0rd$"
 
-# SQL Server 관리자 계정 설정
-SQL_ADMIN_LOGIN="sqladmin"
-SQL_ADMIN_PASSWORD="P@ssw0rd$"
+    # SQL Server 관리자 계정 설정
+    SQL_ADMIN_LOGIN="sqladmin"
+    SQL_ADMIN_PASSWORD="P@ssw0rd$"
+}
+
+# 서브넷 생성 함수
+setup_subnets() {
+    log "서브넷 생성 중..."
+
+    # Redis용 서브넷 생성
+    az network vnet subnet create \
+        --resource-group $RESOURCE_GROUP \
+        --vnet-name $VNET_NAME \
+        --name $SUBNET_REDIS \
+        --address-prefix 10.0.3.0/24 \
+        --disable-private-endpoint-network-policies true
+    check_error "Redis 서브넷 생성 실패"
+
+    # SQL용 서브넷 생성
+    az network vnet subnet create \
+        --resource-group $RESOURCE_GROUP \
+        --vnet-name $VNET_NAME \
+        --name $SUBNET_SQL \
+        --address-prefix 10.0.4.0/24 \
+        --disable-private-endpoint-network-policies true
+    check_error "SQL 서브넷 생성 실패"
+}
 
 # Redis 컨테이너 설정
 setup_redis_container() {
@@ -660,12 +686,15 @@ setup_webapp_config() {
 
 # 메인 실행 함수
 main() {
-    log "Cache-aside 패턴 실습환경 구성을 시작합니다..."
+  log "Cache-aside 패턴 실습환경 구성을 시작합니다..."
 
-    # 사전 체크
-    check_azure_cli
-
+	setup_environment "$1"
+	
+	# 사전 체크
+	check_azure_cli
+	
     # 리소스 생성
+	setup_subnets
     setup_redis_container
     setup_sql
     setup_private_dns
