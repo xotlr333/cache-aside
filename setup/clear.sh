@@ -42,6 +42,7 @@ RESOURCE_GROUP="tiu-dgga-rg"
 AKS_NAME="${1}-aks"
 REDIS_NAMESPACE="redis"
 
+
 # 리소스 삭제 전 확인
 confirm() {
     read -p "모든 리소스를 삭제하시겠습니까? (y/N) " response
